@@ -1,151 +1,207 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Generate backup of Yammer messages
+Inspired by Python-Yammer-Oauth examples
+"""
 
-import httplib
-import time
-import oauth.oauth as oauth
+import os
+from ConfigParser import ConfigParser
 import webbrowser
+import simplejson
 
-# settings for the local test consumer
-SERVER = 'www.yammer.com'
-PORT = 443 
-
-# fake urls for the test server (matches ones in server.py)
-REQUEST_TOKEN_URL = 'https://www.yammer.com/oauth/request_token'
-ACCESS_TOKEN_URL = 'https://www.yammer.com/oauth/access_token'
-AUTHORIZATION_URL = 'https://www.yammer.com/oauth/access_token'
-CALLBACK_URL = 'http://yammerbackup.googlecode.com'
-RESOURCE_URL = 'https://www.yammer.com/api/v1/messages.xml'
+from yammer.yammer import Yammer, YammerError
 
 
-# key and secret granted by the service provider for this consumer application - same as the MockOAuthDataStore
-CONSUMER_KEY = 'wNk0XsH7FNirMMJsUnPu2w'
-CONSUMER_SECRET = 'gF9G7PR8cshx7nsgaB46wAzKgT1SyxkATCSRXXU5VLg'
+config_dir = os.path.join(os.path.expanduser('~'), '.yamerbackup')
+if not os.path.exists(config_dir) :
+    try :
+        os.mkdir(config_dir)
+    except :
+        import traceback
+        traceback.print_exc()
+config_file = os.path.join(config_dir, 'config')
 
-# example client using httplib with headers
-class SimpleOAuthClient(oauth.OAuthClient):
+try:
+    from local_settings import *
+except ImportError:
+    pass
 
-    def __init__(self, server, port=httplib.HTTP_PORT, request_token_url='', access_token_url='', authorization_url=''):
-        self.server = server
-        self.port = port
-        self.request_token_url = request_token_url
-        self.access_token_url = access_token_url
-        self.authorization_url = authorization_url
-        self.connection = httplib.HTTPSConnection("%s:%d" % (self.server, self.port))
+config = ConfigParser()
+config.read(config_file)
 
-    def fetch_request_token(self, oauth_request):
-        # via headers
-        # -> OAuthToken
-        self.connection.request(oauth_request.http_method, self.request_token_url, headers=oauth_request.to_header()) 
-        response = self.connection.getresponse()
-        data = response.read()
-        print 'Got response:', data
-        return oauth.OAuthToken.from_string(data)
+access_token_key = ''
+access_token_secret = ''
+if config.has_section('main') :
+    if config.has_option('main', 'access_token_key') :
+        access_token_key = config.get('main', 'access_token_key')
+    if config.has_option('main', 'access_token_secret') :
+        access_token_secret = config.get('main', 'access_token_secret')
 
-    def fetch_access_token(self, oauth_request):
-        # via headers
-        # -> OAuthToken
-        self.connection.request(oauth_request.http_method, self.access_token_url, headers=oauth_request.to_header()) 
-        response = self.connection.getresponse()
-        return oauth.OAuthToken.from_string(response.read())
+def get_proxy_info():
+    """ Ask user for proxy information if not already defined in
+    configuration file.
 
-    def authorize_token(self, oauth_request):
-        # via url
-        # -> typically just some okay response
-        #self.connection.request(oauth_request.http_method, oauth_request.to_url()) 
-        #response = self.connection.getresponse()
-        #return response.read()
+    """
+    # Set defaults
+    proxy = {'host': None,
+             'port': None,
+             'username': None,
+             'password': None}
 
-        # Open web browser to ask user to authorize request
-        url = oauth_request.to_url()
-        webbrowser.open(url)
+    if not use_proxy :
+        return proxy
 
-    def access_resource(self, oauth_request):
-        # via post body
-        # -> some protected resources
-        headers = {'Content-Type' :'application/x-www-form-urlencoded'}
-        self.connection.request('POST', RESOURCE_URL, body=oauth_request.to_postdata(), headers=headers)
-        response = self.connection.getresponse()
-        return response.read()
+    # Is proxy host set? If not, ask user for proxy information
+    if 'proxy_host' not in globals():
+        proxy_yesno = raw_input("Use http proxy? [y/N]: ")
+        if proxy_yesno.lower()[0:1].strip() == 'y':
+            proxy['host'] = raw_input("Proxy hostname: ")
+            port = raw_input("Proxy port: ")
+            if not port:
+                port = 80
+            proxy['port'] = int(port)
+            proxy['username'] = raw_input("Proxy username (return for none): ")
+            if len(proxy['username']) != 0:
+                proxy['password'] = raw_input("Proxy password: ")
+    elif proxy_host:
+        if 'proxy_port' not in globals():
+            proxy['port'] = 80
 
-def run_example():
+    return proxy
 
-    # setup
-    print '** OAuth Python Library Example **'
-    client = SimpleOAuthClient(SERVER, PORT, REQUEST_TOKEN_URL, ACCESS_TOKEN_URL, AUTHORIZATION_URL)
-    consumer = oauth.OAuthConsumer(CONSUMER_KEY, CONSUMER_SECRET)
-    #consumer = {'oauth_token': CONSUMER_KEY, 'oauth_token_secret': CONSUMER_SECRET}
-    print 'CONSUMER: ', consumer
-    signature_method_plaintext = oauth.OAuthSignatureMethod_PLAINTEXT()
-    signature_method_hmac_sha1 = oauth.OAuthSignatureMethod_HMAC_SHA1()
-    pause()
+def get_consumer_info():
+    """ Get consumer key and secret from user unless defined in
+    local settings.
 
-    # get request token
-    print '* Obtain a request token ...'
-    pause()
-    oauth_request = oauth.OAuthRequest.from_consumer_and_token(consumer, http_url=client.request_token_url)
-    oauth_request.sign_request(signature_method_hmac_sha1, consumer, None)
-    print 'REQUEST (via headers)'
-    print 'parameters: %s' % str(oauth_request.parameters)
-    pause()
-    token = client.fetch_request_token(oauth_request)
-    print 'GOT'
-    print 'key: %s' % str(token.key)
-    print 'secret: %s' % str(token.secret)
-    print 'callback confirmed? %s' % str(token.callback_confirmed)
-    pause()
+    """
+    consumer = {'key': None,
+                'secret': None}
+    if ('consumer_key' not in globals()
+            or not consumer_key
+            or 'consumer_secret' not in globals()
+            or not consumer_secret):
+        print "\n#1 ... visit https://www.yammer.com/client_applications/new"
+        print "       to register your application.\n"
 
-    print '* Authorize the request token ...'
-    pause()
-    #oauth_request = oauth.OAuthRequest.from_token_and_callback(token=token, http_url=client.authorization_url)
-    oauth_request = oauth.OAuthRequest.from_consumer_and_token(consumer, token=token, http_url=client.authorization_url)
-    oauth_request.sign_request(signature_method_hmac_sha1, consumer, token)
-    print 'REQUEST (via url query string)'
-    print 'parameters: %s' % str(oauth_request.parameters)
-    pause()
-    # this will actually occur only on some callback
-    response = client.authorize_token(oauth_request)
-    print 'GOT'
-    print response
-    # sad way to get the verifier
-    import urlparse, cgi
-    query = urlparse.urlparse(response)[4]
-    params = cgi.parse_qs(query, keep_blank_values=False)
-    verifier = params['oauth_verifier'][0]
-    print 'verifier: %s' % verifier
-    pause()
+        consumer['key'] = raw_input("Enter consumer key: ")
+        consumer['secret'] = raw_input("Enter consumer secret: ")
+    else:
+        consumer['key'] = consumer_key
+        consumer['secret'] = consumer_secret
 
-    # get access token
-    print '* Obtain an access token ...'
-    pause()
-    oauth_request = oauth.OAuthRequest.from_consumer_and_token(consumer, token=token, verifier=verifier, http_url=client.access_token_url)
-    oauth_request.sign_request(signature_method_hmac_sha1, consumer, token)
-    print 'REQUEST (via headers)'
-    print 'parameters: %s' % str(oauth_request.parameters)
-    pause()
-    token = client.fetch_access_token(oauth_request)
-    print 'GOT'
-    print 'key: %s' % str(token.key)
-    print 'secret: %s' % str(token.secret)
-    pause()
+    if not consumer['key'] or not consumer['secret']:
+        print "*** Error: Consumer key or (%s) secret (%s) not valid.\n" % (
+                                                        consumer['key'],
+                                                        consumer['secret'])
+        raise StandardError("Consumer key or secret not valid")
 
-    # access some protected resources
-    print '* Access protected resources ...'
-    pause()
-    parameters = {'file': 'vacation.jpg', 'size': 'original'} # resource specific params
-    oauth_request = oauth.OAuthRequest.from_consumer_and_token(consumer, token=token, http_method='POST', http_url=RESOURCE_URL, parameters=parameters)
-    oauth_request.sign_request(signature_method_hmac_sha1, consumer, token)
-    print 'REQUEST (via post body)'
-    print 'parameters: %s' % str(oauth_request.parameters)
-    pause()
-    params = client.access_resource(oauth_request)
-    print 'GOT'
-    print 'non-oauth parameters: %s' % params
-    pause()
+    return consumer
 
-def pause():
-    print ''
-    time.sleep(1)
+#
+# Main
+#
 
-if __name__ == '__main__':
-    run_example()
-    print 'Done.'
+yammer = None
+proxy = get_proxy_info()
+consumer = get_consumer_info()
+
+# If we already have an access token, we don't need to do the full
+# OAuth dance
+if not access_token_key or not access_token_secret :
+    try:
+        yammer = Yammer(consumer['key'],
+                        consumer['secret'],
+                        proxy_host=proxy['host'],
+                        proxy_port=proxy['port'],
+                        proxy_username=proxy['username'],
+                        proxy_password=proxy['password'])
+    except YammerError, m:
+        print "*** Error: %s" % m.message
+        quit()
+
+    print "\n#2 ... Fetching request token.\n"
+
+    try:
+        unauth_request_token = yammer.fetch_request_token()
+    except YammerError, m:
+        print "*** Error: %s" % m.message
+        quit()
+
+    unauth_request_token_key = unauth_request_token.key
+    unauth_request_token_secret = unauth_request_token.secret
+
+    try:
+        url = yammer.get_authorization_url(unauth_request_token)
+    except YammerError, m:
+        print "*** Error: %s" % m.message
+        quit()
+
+    print "#3 ... Manually authorize via url: %s\n" % url
+    webbrowser.open(url)
+
+    oauth_verifier = raw_input("After authorizing, enter the OAuth "
+                               "verifier (four characters): ")
+
+    print "\n#4 ... Fetching access token.\n"
+
+    try:
+        access_token = yammer.fetch_access_token(unauth_request_token_key,
+                                                 unauth_request_token_secret,
+                                                 oauth_verifier)
+    except YammerError, m:
+        print "*** Error: %s" % m.message
+        quit()
+
+    access_token_key = access_token.key
+    access_token_secret = access_token.secret
+
+    print "Your access token:\n"
+    print "Key:    %s" % access_token_key
+    print "Secret: %s" % access_token_secret
+    if not config.has_section('main') :
+        config.add_section('main')
+    config.set('main', 'access_token_key', access_token_key)
+    config.set('main', 'access_token_secret', access_token_secret)
+    f = open(config_file, 'w')
+    config.write(f)
+    f.close()
+
+if 'username' not in globals():
+    username = raw_input("Enter Yammer username (or return for "
+                         "current): ")
+
+#if 'include_replies' not in globals():
+#    include_replies_yesno = raw_input("Include replies? [y/N]: ")
+#    if string.strip((include_replies_yesno.lower())[0:1]) == 'y':
+#        include_replies = True
+#    else:
+#        include_replies = False
+
+print "\n#5 ... Fetching latest user post.\n"
+
+# If we just got our access key, we already have a Yammer instance
+if not yammer:
+    try:
+        yammer = Yammer(consumer['key'],
+                        consumer['secret'],
+                        access_token_key=access_token_key,
+                        access_token_secret=access_token_secret,
+                        proxy_host=proxy['host'],
+                        proxy_port=proxy['port'],
+                        proxy_username=proxy['username'],
+                        proxy_password=proxy['password'])
+    except YammerError, m:
+        print "*** Error: %s" % m.message
+        quit()
+
+try:
+    r = yammer.get_user_posts(max_length=1,
+                              username=username,
+                              include_replies=True)
+    yammer.close()
+    print "Result:"
+    print simplejson.dumps(r, indent=4)
+except YammerError, m:
+    print "*** Error: %s" % m.message
+    quit()

@@ -29,23 +29,25 @@ try:
     from local_settings import *
 except ImportError:
     debug = False
+    use_pycurl = False
 
-try:
-    # Use pycurl if available since httplib does not support using proxy
-    # over https
-    import pycurl
-    import StringIO
-    _use_pycurl = True
-    if debug:
-        print "Using pycurl."
-except ImportError:
+if use_pycurl :
+    try:
+        # Use pycurl if available since httplib does not support using proxy
+        # over https
+        import pycurl
+        import StringIO
+        _use_pycurl = True
+        if debug:
+            print "Using pycurl."
+    except ImportError:
+        import httplib
+        import socket
+        _use_pycurl = False
+else :
     import httplib
     import socket
     _use_pycurl = False
-
-import httplib
-import socket
-_use_pycurl = False
 
 
 YAMMER_REQUEST_TOKEN_URL = 'https://www.yammer.com/oauth/request_token'

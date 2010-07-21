@@ -8,3 +8,4 @@
 
 # Print debug information?
 debug = True
+use_pycurl = False
