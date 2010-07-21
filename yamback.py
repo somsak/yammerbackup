@@ -196,9 +196,10 @@ if not yammer:
         quit()
 
 try:
-    r = yammer.get_user_posts(max_length=1,
-                              username=username,
-                              include_replies=True)
+#    r = yammer.get_user_posts(max_length=1,
+#                              username=username,
+#                              include_replies=True)
+    r = yammer.get_messages()
     yammer.close()
     print "Result:"
     print simplejson.dumps(r, indent=4)

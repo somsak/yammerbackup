@@ -24,6 +24,7 @@ from oauth.oauth import (OAuthClient, OAuthConsumer, OAuthError,
                          OAuthRequest, OAuthSignatureMethod_HMAC_SHA1,
                          OAuthSignatureMethod_PLAINTEXT, OAuthToken)
 import simplejson
+import urllib
 
 try:
     from local_settings import *
@@ -417,3 +418,29 @@ class Yammer(OAuthClient):
                 if not m['replied_to_id']:
                     replies.append(m)
             return replies[0:max_length]
+
+    def get_messages(self, older_than = None, newer_than = None) :
+        """
+        Get all messages
+        """
+        params = []
+        if older_than :
+            params.append(('older_than', older_than))
+        if newer_than :
+            params.append(('newer_than', newer_than))
+        if params :
+            url = "%smessages.json?%s" % (YAMMER_API_BASE_URL, urllib.urlencode(params))
+        else :
+            url = "%smessages.json" % (YAMMER_API_BASE_URL)
+
+        json = self._fetch_resource(url)
+
+        try:
+            pyjson = simplejson.loads(json)
+        except ValueError:
+            raise YammerError("Could not decode json.")
+
+        if 'messages' not in pyjson:
+            raise YammerError("Messages section missing in returned JSON.")
+
+        return pyjson['messages']
