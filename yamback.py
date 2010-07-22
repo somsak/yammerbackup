@@ -13,7 +13,7 @@ import simplejson
 from yammer.yammer import Yammer, YammerError
 
 
-config_dir = os.path.join(os.path.expanduser('~'), '.yamerbackup')
+config_dir = os.path.join(os.path.expanduser('~'), '.yammerbackup')
 if not os.path.exists(config_dir) :
     try :
         os.mkdir(config_dir)
