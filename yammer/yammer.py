@@ -428,12 +428,14 @@ class Yammer(OAuthClient):
             params.append(('older_than', older_than))
         if newer_than :
             params.append(('newer_than', newer_than))
-        if params :
-            url = "%smessages.json?%s" % (YAMMER_API_BASE_URL, urllib.urlencode(params))
-        else :
-            url = "%smessages.json" % (YAMMER_API_BASE_URL)
+        #if params :
+        #    url = "%smessages.json?%s" % (YAMMER_API_BASE_URL, urllib.urlencode(params))
+        #else :
+        #    url = "%smessages.json" % (YAMMER_API_BASE_URL)
+        url = "%smessages.json" % (YAMMER_API_BASE_URL)
+        #print 'Url = ', url
 
-        json = self._fetch_resource(url)
+        json = self._fetch_resource(url, parameters = params)
 
         try:
             pyjson = simplejson.loads(json)

@@ -195,14 +195,33 @@ if not yammer:
         print "*** Error: %s" % m.message
         quit()
 
+from output.sqlite import output
+
 try:
 #    r = yammer.get_user_posts(max_length=1,
 #                              username=username,
 #                              include_replies=True)
-    r = yammer.get_messages()
+
+    out = output(output_url)
+
+    last_id = None
+    last_id = out.get_min_id()
+    print "Last ID = ", last_id
+    while True :
+        messages = yammer.get_messages(older_than = last_id)
+
+        if not messages: 
+            break
+
+        for m in messages :
+            if not last_id or (last_id > m['id']) :
+                last_id = m['id']
+            out.put(m)
+        out.commit()
+
     yammer.close()
-    print "Result:"
-    print simplejson.dumps(r, indent=4)
+    #print "Result:"
+    #print simplejson.dumps(r, indent=4)
 except YammerError, m:
     print "*** Error: %s" % m.message
     quit()

@@ -31,7 +31,7 @@ consumer_secret = 'gF9G7PR8cshx7nsgaB46wAzKgT1SyxkATCSRXXU5VLg'
 # instead of the user who owns the access token. If commented out, set
 # to None or '', the user will be asked for this information.
 #
-# username = ''
+username = 'somsak'
 
 # Whether or not to include replies in the result set. If commented out,
 # set to None or '', the user will be asked for this information.
@@ -39,3 +39,7 @@ consumer_secret = 'gF9G7PR8cshx7nsgaB46wAzKgT1SyxkATCSRXXU5VLg'
 # include_replies = False
 
 use_proxy = False
+
+output_driver = 'output.sqlite'
+output_url = 'sqlite:////home/somsak/Desktop/yammer.sqlite'
+#output_url = 'sqlite:///:memory:'
