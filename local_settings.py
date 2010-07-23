@@ -6,6 +6,8 @@
 # Change filename to example_local_settings.py
 #
 
+delay = 30
+
 # If consumer key and secret are commented out, None, or '',
 # instructions will be given on how to obtain them.
 #

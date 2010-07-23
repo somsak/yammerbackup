@@ -5,7 +5,7 @@ Generate backup of Yammer messages
 Inspired by Python-Yammer-Oauth examples
 """
 
-import os
+import os, time
 from ConfigParser import ConfigParser
 import webbrowser
 import simplejson
@@ -22,6 +22,7 @@ if not os.path.exists(config_dir) :
         traceback.print_exc()
 config_file = os.path.join(config_dir, 'config')
 
+delay = 1
 try:
     from local_settings import *
 except ImportError:
@@ -218,6 +219,7 @@ try:
                 last_id = m['id']
             out.put(m)
         out.commit()
+        time.sleep(delay)
 
     yammer.close()
     #print "Result:"
