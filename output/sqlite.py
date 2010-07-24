@@ -8,7 +8,7 @@ from sqlalchemy import Table, Column, Integer, String, DateTime, Unicode, MetaDa
 from sqlalchemy.orm import mapper, sessionmaker
 from sqlalchemy.sql import and_, or_, not_, func, select
 
-from base import Output
+from base import Output, Message
 
 metadata = MetaData()
 
@@ -19,21 +19,9 @@ message = Table('messages', metadata,
         Column('msg', Unicode, nullable = False, index = True),
         Column('created', DateTime, nullable = False, index = True),
         Column('replied_to', Integer, default = None, index = True),
-        Column('client', String(128), default = 'web')
+        Column('client', String(128), default = 'web'),
+        Column('migrated_id', Integer, default = None)
     )
-
-class Message(object) :
-    def __init__(self, **kw) :
-        self.id = kw.get('id', None)
-        self.yammer_id = kw.get('yammer_id', None)
-        self.owner = kw.get('owner', None)
-        self.msg = unicode(kw.get('msg', ''))
-        self.created = kw.get('created', None)
-        self.replied_to = kw.get('replied_to', None)
-        self.client = kw.get('client', '')
-
-    def __repr__(self) :
-        return '<Message(%d, %s)>' % (self.id, self.msg)
 
 mapper(Message, message)
 
@@ -42,7 +30,7 @@ class SqliteOutput(Output) :
         Output.__init__(self, yammer, url, **kw)
         self.url = url
         #print 'Got URL: ', self.url
-        self.engine = create_engine(self.url, echo=True)
+        self.engine = create_engine(self.url, echo=True, convert_unicode = True)
         metadata.create_all(self.engine)
         self.conn = self.engine.connect()
         self.session = sessionmaker(bind = self.engine)()
@@ -55,8 +43,8 @@ class SqliteOutput(Output) :
         created = datetime.strptime(msg['created_at'], '%Y/%m/%d %H:%M:%S +0000')
         #print created
         #print msg['created_at']
-        replied_to_id = msg['replied_to_id'] or None
         owner = self.get_user(int(msg['sender_id']))
+        replied_to_id = msg['replied_to_id'] or None
 #        print 'Owner = ', owner
         val = {'yammer_id' : msg['id'], 'owner': owner, 'msg' : msg['body']['plain'],
                 'created':created, 'replied_to':replied_to_id, 'client':msg['client_type']}
@@ -72,5 +60,9 @@ class SqliteOutput(Output) :
             return result[0]
         else :
             return None
+
+    def iteritems(self) :
+        for item in self.session.query(Message).order_by(Message.created) :
+            yield item
 
 output = SqliteOutput
