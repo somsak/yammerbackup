@@ -62,7 +62,7 @@ for msg in local_db.iteritems() :
         conv_id = None
         pass
     if conv_id :
-        c.execute('''INSERT INTO notice (profile_id, content, rendered, created, modified, source, conversation) VALUES (%s, %s, %s, %s, %s, 'yammer', %s)''', (userid_map[msg.owner], msg.msg, msg.msg, msg.created, msg.created, conv_id))
+        c.execute('''INSERT INTO notice (profile_id, content, rendered, created, modified, source, is_local, conversation) VALUES (%s, %s, %s, %s, %s, 'yammer', 1, %s)''', (userid_map[msg.owner], msg.msg, msg.msg, msg.created, msg.created, conv_id))
         notice_id = c.lastrowid
         c.execute('''UPDATE notice SET `uri`='%s/notice/%d' WHERE `id`=%d''' % (BASE_STATUSNET_URL, notice_id, notice_id))
     c.close()
