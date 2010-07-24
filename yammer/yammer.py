@@ -446,3 +446,17 @@ class Yammer(OAuthClient):
             raise YammerError("Messages section missing in returned JSON.")
 
         return pyjson['messages']
+
+    def get_user_info(self, id) :
+        """
+        Get user's information via iD
+        """
+        url = "%susers/%s.json" % (YAMMER_API_BASE_URL, str(id))
+        json = self._fetch_resource(url)
+        try:
+            pyjson = simplejson.loads(json)
+        except ValueError:
+            raise YammerError("Could not decode json.")
+
+        return pyjson
+

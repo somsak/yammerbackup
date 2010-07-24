@@ -203,7 +203,7 @@ try:
 #                              username=username,
 #                              include_replies=True)
 
-    out = output(output_url)
+    out = output(yammer, output_url)
 
     last_id = None
     last_id = out.get_min_id()

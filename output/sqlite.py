@@ -4,16 +4,19 @@ import types
 from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
-from sqlalchemy import Table, Column, Integer, String, DateTime, MetaData, ForeignKey   
+from sqlalchemy import Table, Column, Integer, String, DateTime, Unicode, MetaData, ForeignKey
 from sqlalchemy.orm import mapper, sessionmaker
 from sqlalchemy.sql import and_, or_, not_, func, select
+
+from base import Output
 
 metadata = MetaData()
 
 message = Table('messages', metadata,
         Column('id', Integer, primary_key = True),
         Column('yammer_id', Integer, unique = True, nullable = False, index = True),
-        Column('msg', String(300), nullable = False, index = True),
+        Column('owner', String(100), nullable = False, index = True),
+        Column('msg', Unicode, nullable = False, index = True),
         Column('created', DateTime, nullable = False, index = True),
         Column('replied_to', Integer, default = None, index = True),
         Column('client', String(128), default = 'web')
@@ -23,6 +26,7 @@ class Message(object) :
     def __init__(self, **kw) :
         self.id = kw.get('id', None)
         self.yammer_id = kw.get('yammer_id', None)
+        self.owner = kw.get('owner', None)
         self.msg = unicode(kw.get('msg', ''))
         self.created = kw.get('created', None)
         self.replied_to = kw.get('replied_to', None)
@@ -33,8 +37,9 @@ class Message(object) :
 
 mapper(Message, message)
 
-class SqliteOutput(object) :
-    def __init__(self, url, **kw) :
+class SqliteOutput(Output) :
+    def __init__(self, yammer, url, **kw) :
+        Output.__init__(self, yammer, url, **kw)
         self.url = url
         #print 'Got URL: ', self.url
         self.engine = create_engine(self.url, echo=True)
@@ -51,8 +56,11 @@ class SqliteOutput(object) :
         #print created
         #print msg['created_at']
         replied_to_id = msg['replied_to_id'] or None
-        val = {'yammer_id' : msg['id'], 'msg' : msg['body']['plain'],
+        owner = self.get_user(int(msg['sender_id']))
+#        print 'Owner = ', owner
+        val = {'yammer_id' : msg['id'], 'owner': owner, 'msg' : msg['body']['plain'],
                 'created':created, 'replied_to':replied_to_id, 'client':msg['client_type']}
+        #print val
         #self.conn.execute(message.insert(values=val))
         #print self.session
         self.session.add(Message(**val))
