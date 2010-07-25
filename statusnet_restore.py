@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#/usr/bin/python
 
-import sys
+import sys, getpass
 
 import MySQLdb
 
@@ -21,7 +21,7 @@ db_host = sys.argv[1]
 db_name = sys.argv[2]
 db_user = sys.argv[3]
 
-db_password = raw_input('Password: ')
+db_password = getpass.getpass('Password: ')
 
 conn = MySQLdb.connect(db_host, db_user, db_password, db_name, use_unicode = True, charset='utf8')
 
