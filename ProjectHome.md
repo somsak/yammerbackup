@@ -1,0 +1,1 @@
+This project implements a tool to backup all messages from a Yammer network.
